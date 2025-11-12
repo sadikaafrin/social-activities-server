@@ -129,6 +129,46 @@ async function run() {
       });
     });
 
+    // search event
+    app.get("/search", async (req, res) => {
+      try {
+        const { search = "", category = "" } = req.query;
+
+        const query = {};
+
+        // Case-insensitive name search
+        if (search) {
+          query.name = { $regex: search, $options: "i" };
+        }
+
+        // Filter by category if provided
+        if (category) {
+          query.category = category;
+        }
+
+        const result = await eventCollection.find(query).toArray();
+
+        res.send({
+          success: true,
+          count: result.length,
+          result,
+        });
+      } catch (error) {
+        console.error("Search error:", error);
+        res
+          .status(500)
+          .send({ success: false, message: "Failed to search events" });
+      }
+    });
+
+    // app.get("/search", async (req, res) => {
+    //   const search_text = req.query.search;
+    //   const result = await eventCollection
+    //     .find({ name: { $regex: search_text, $options: "i" } })
+    //     .toArray();
+    //   res.send(result);
+    // });
+
     // add event
     app.post("/events", verifyToken, async (req, res) => {
       const data = req.body;
