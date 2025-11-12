@@ -73,6 +73,8 @@ async function run() {
     await client.connect();
     db = client.db("event-db");
     usersCollection = db.collection("users");
+    eventCollection = db.collection("events");
+    joinCollection = db.collection("join_event");
     console.log("Connected to MongoDB!");
 
     app.post("/register", verifyToken, async (req, res) => {
@@ -108,6 +110,143 @@ async function run() {
       }
     });
 
+    // get all event
+    app.get("/upcoming-events", async (req, res) => {
+      const result = await eventCollection.find().toArray();
+      res.send(result);
+    });
+
+    // single upcoming events
+    app.get("/upcoming-events-details/:id", async (req, res) => {
+      const { id } = req.params;
+      const objectId = new ObjectId(id);
+
+      const result = await eventCollection.findOne({ _id: objectId });
+
+      res.send({
+        success: true,
+        result,
+      });
+    });
+
+    // add event
+    app.post("/events", verifyToken, async (req, res) => {
+      const data = req.body;
+      // console.log(data)
+      const result = await eventCollection.insertOne(data);
+      res.send({
+        success: true,
+        result,
+      });
+    });
+
+    app.post("/join-event/:id", async (req, res) => {
+      try {
+        const eventId = req.params.id;
+        const { joined_by } = req.body;
+        const alreadyJoined = await joinCollection.findOne({
+          event_id: eventId,
+          joined_by: joined_by,
+        });
+
+        if (alreadyJoined) {
+          return res
+            .status(400)
+            .send({ message: "User already joined this event" });
+        }
+
+        // Otherwise insert the join
+        const result = await joinCollection.insertOne({
+          ...req.body,
+          event_id: eventId,
+        });
+
+        // (Optional) increment join count on main event
+        await eventsCollection.updateOne(
+          { _id: new ObjectId(eventId) },
+          { $inc: { join: 1 } }
+        );
+
+        res.send({ success: true, message: "Successfully joined event" });
+      } catch (error) {
+        console.error("Error joining event:", error);
+        res.status(500).send({ message: "Failed to join event" });
+      }
+    });
+
+    // app.get("/events-join", async (req, res) => {
+    //   const email = req.query.email;
+    //   const query = {};
+    //   if (email) {
+    //     query.created_by = email;
+    //   }
+    //   const cursor = eventCollection.find(query);
+    //   const result = await cursor.toArray();
+    //   res.send(result);
+    // });
+    // check join event by user email
+    app.get("/check-joined", async (req, res) => {
+      const { eventId, email } = req.query;
+      const joined = await joinCollection.findOne({
+        joined_by: email,
+        event_id: eventId,
+      });
+      res.send({ joined: !!joined });
+    });
+
+    // join event
+    app.post("/join-event/:id", async (req, res) => {
+      const data = req.body;
+      const id = req.params.id;
+      //downloads collection...
+      const result = await joinCollection.insertOne(data);
+
+      //downloads counted
+      const filter = { _id: new ObjectId(id) };
+      const update = {
+        $inc: {
+          join: 1,
+        },
+      };
+      const joinCounted = await eventCollection.updateOne(filter, update);
+      res.send({ result, joinCounted });
+    });
+
+    // my join event
+    const { ObjectId } = require("mongodb");
+    app.get("/my-join-event", async (req, res) => {
+      const email = req.query.email;
+
+      const result = await joinCollection
+        .aggregate([
+          { $match: { joined_by: email } },
+          {
+            $lookup: {
+              from: "events",
+              let: { eventId: { $toObjectId: "$event_id" } },
+              pipeline: [{ $match: { $expr: { $eq: ["$_id", "$$eventId"] } } }],
+              as: "eventInfo",
+            },
+          },
+          { $unwind: "$eventInfo" },
+          {
+            $project: {
+              name: "$eventInfo.name",
+              event_date: "$eventInfo.event_date",
+              location: "$eventInfo.location",
+              created_by: "$eventInfo.created_by",
+              description: "$eventInfo.description",
+              thumbnail: "$eventInfo.thumbnail",
+              joined_by: 1,
+            },
+          },
+        ])
+        .toArray();
+
+      res.send(result);
+    });
+
+ 
     // await client.db("admin").command({ ping: 1 });
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!"
