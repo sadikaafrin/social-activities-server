@@ -140,6 +140,86 @@ async function run() {
       });
     });
 
+    // update my crated event
+    app.put("/events/:id", verifyToken, async (req, res) => {
+      try {
+        const { id } = req.params;
+        const data = req.body;
+        const objectId = new ObjectId(id);
+        const filter = { _id: objectId };
+        const update = {
+          $set: data,
+        };
+
+        const result = await eventCollection.updateOne(filter, update);
+
+        if (result.matchedCount === 0) {
+          return res.status(404).send({
+            success: false,
+            message: "Event not found",
+          });
+        }
+
+        // Get the updated event to return
+        const updatedEvent = await eventCollection.findOne({ _id: objectId });
+
+        res.send({
+          success: true,
+          result,
+          data: updatedEvent,
+        });
+      } catch (error) {
+        console.error("Error updating event:", error);
+        res.status(500).send({
+          success: false,
+          message: "Internal server error",
+        });
+      }
+    });
+    //     app.put("/events/:id", verifyToken, async (req, res) => {
+    //   const { id } = req.params;
+    //   const data = req.body;
+    //   const objectId = new ObjectId(id);
+    //   const filter = { _id: objectId };
+    //   const update = {
+    //     $set: data,
+    //   };
+
+    //   const result = await eventCollection.updateOne(filter, update);
+
+    //   res.send({
+    //     success: true,
+    //     result,
+    //   });
+    // });
+
+    // delete event
+    app.delete("/events/:id", async (req, res) => {
+      const { id } = req.params;
+      //    const objectId = new ObjectId(id)
+      // const filter = {_id: objectId}
+      const result = await eventCollection.deleteOne({
+        _id: new ObjectId(id),
+      });
+
+      res.send({
+        success: true,
+        result,
+      });
+    });
+
+    // my created event
+    app.get("/my-created-events", verifyToken, async (req, res) => {
+      const email = req.query.email;
+      const query = {};
+      if (email) {
+        query.created_by = email;
+      }
+      const cursor = eventCollection.find(query);
+      const result = await cursor.toArray();
+      res.send(result);
+    });
+
     app.post("/join-event/:id", async (req, res) => {
       try {
         const eventId = req.params.id;
@@ -162,7 +242,7 @@ async function run() {
         });
 
         // (Optional) increment join count on main event
-        await eventsCollection.updateOne(
+        await eventCollection.updateOne(
           { _id: new ObjectId(eventId) },
           { $inc: { join: 1 } }
         );
@@ -246,7 +326,6 @@ async function run() {
       res.send(result);
     });
 
- 
     // await client.db("admin").command({ ping: 1 });
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!"
