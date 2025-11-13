@@ -204,22 +204,7 @@ async function run() {
         });
       }
     });
-    //     app.put("/events/:id", verifyToken, async (req, res) => {
-    //   const { id } = req.params;
-    //   const data = req.body;
-    //   const objectId = new ObjectId(id);
-    //   const filter = { _id: objectId };
-    //   const update = {
-    //     $set: data,
-    //   };
-
-    //   const result = await eventCollection.updateOne(filter, update);
-
-    //   res.send({
-    //     success: true,
-    //     result,
-    //   });
-    // });
+   
 
     // delete event
     app.delete("/events/:id", async (req, res) => {
