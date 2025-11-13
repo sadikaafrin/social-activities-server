@@ -70,7 +70,7 @@ const verifyToken = async (req, res, next) => {
 
 async function run() {
   try {
-    await client.connect();
+    // await client.connect();
     db = client.db("event-db");
     usersCollection = db.collection("users");
     eventCollection = db.collection("events");
@@ -135,19 +135,15 @@ async function run() {
         const { search = "", category = "" } = req.query;
 
         const query = {};
-
         // Case-insensitive name search
         if (search) {
           query.name = { $regex: search, $options: "i" };
         }
-
         // Filter by category if provided
         if (category) {
           query.category = category;
         }
-
         const result = await eventCollection.find(query).toArray();
-
         res.send({
           success: true,
           count: result.length,
@@ -160,14 +156,6 @@ async function run() {
           .send({ success: false, message: "Failed to search events" });
       }
     });
-
-    // app.get("/search", async (req, res) => {
-    //   const search_text = req.query.search;
-    //   const result = await eventCollection
-    //     .find({ name: { $regex: search_text, $options: "i" } })
-    //     .toArray();
-    //   res.send(result);
-    // });
 
     // add event
     app.post("/events", verifyToken, async (req, res) => {

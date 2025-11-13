@@ -1,4 +1,4 @@
 node_modules
 .env
-serviceKey.json
+smart-deal-firebase-adminsd.json
 .vercel
